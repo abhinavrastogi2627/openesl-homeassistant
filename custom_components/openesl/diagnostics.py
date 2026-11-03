@@ -9,10 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.loader import async_get_integration
 
+from .api import OpenEslError
 from .coordinator import OpenEslConfigEntry
 from .const import DOMAIN
 
-TO_REDACT = {"token", "host", "ssid", "setup_ssid", "fields", "content"}
+TO_REDACT = {"token", "host", "ssid", "setup_ssid", "ip", "fields", "content"}
 
 
 async def _base_diagnostics(
@@ -54,5 +55,9 @@ async def async_get_device_diagnostics(
     if mac is None:
         return diagnostics
     diagnostics["tag"] = async_redact_data(data.tags[mac], TO_REDACT)
-    diagnostics["details"] = async_redact_data(await entry.runtime_data.api.get_tag(mac), TO_REDACT)
+    try:
+        details = await entry.runtime_data.api.get_tag(mac)
+    except OpenEslError as err:
+        details = {"error": str(err)}
+    diagnostics["details"] = async_redact_data(details, TO_REDACT)
     return diagnostics

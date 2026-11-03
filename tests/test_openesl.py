@@ -621,6 +621,7 @@ async def test_config_entry_diagnostics_redacts_credentials_and_wifi(hass: HomeA
     assert diagnostics["ap"] == AP
     assert diagnostics["health"] == HEALTH
     assert diagnostics["wifi"]["ssid"] == "**REDACTED**"
+    assert diagnostics["wifi"]["ip"] == "**REDACTED**"
     assert diagnostics["entry"]["data"]["token"] == "**REDACTED**"
     assert diagnostics["entry"]["data"]["host"] == "**REDACTED**"
     assert TOKEN not in str(diagnostics)
@@ -643,6 +644,20 @@ async def test_device_diagnostics_redacts_tag_fields(hass: HomeAssistant, ap, en
     assert diagnostics["details"]["mac"] == MAC1
     assert diagnostics["details"]["fields"] == "**REDACTED**"
     assert diagnostics["details"]["content"] == "**REDACTED**"
+
+
+async def test_device_diagnostics_returns_tag_lookup_error(hass: HomeAssistant, ap, entry) -> None:
+    """A removed or unreachable tag still produces a useful diagnostics download."""
+    from custom_components.openesl.diagnostics import async_get_device_diagnostics
+
+    ap.get(f"{URL}/api/tags/{MAC1}", status=404, json={"error": "not found"})
+    await _setup(hass, entry)
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, MAC1)})
+
+    diagnostics = await async_get_device_diagnostics(hass, entry, device)
+
+    assert diagnostics["tag"] == TAGS["tags"][0]
+    assert diagnostics["details"] == {"error": "404: not found"}
 
 
 async def test_access_point_device_diagnostics_need_no_tag_request(hass: HomeAssistant, ap, entry) -> None:
